@@ -415,128 +415,131 @@ struct spi_master {
 #define SPI_BIT_MASK(bits) (((bits) == 32) ? ~0U : (BIT(bits) - 1))
 #define SPI_BPW_RANGE_MASK(min, max) (SPI_BIT_MASK(max) - SPI_BIT_MASK(min - 1))
 
-    /* limits on transfer speed */
-    u32         min_speed_hz;
-    u32         max_speed_hz;
+	/* limits on transfer speed */
+	u32			min_speed_hz;
+	u32			max_speed_hz;
 
-    /* other constraints relevant to this driver */
-    u16         flags;
-#define SPI_MASTER_HALF_DUPLEX  BIT(0)      /* can't do full duplex */
-#define SPI_MASTER_NO_RX    BIT(1)      /* can't do buffer read */
-#define SPI_MASTER_NO_TX    BIT(2)      /* can't do buffer write */
-#define SPI_MASTER_MUST_RX      BIT(3)      /* requires rx */
-#define SPI_MASTER_MUST_TX      BIT(4)      /* requires tx */
+	/* other constraints relevant to this driver */
+	u16			flags;
+#define SPI_MASTER_HALF_DUPLEX	BIT(0)		/* can't do full duplex */
+#define SPI_MASTER_NO_RX	BIT(1)		/* can't do buffer read */
+#define SPI_MASTER_NO_TX	BIT(2)		/* can't do buffer write */
+#define SPI_MASTER_MUST_RX      BIT(3)		/* requires rx */
+#define SPI_MASTER_MUST_TX      BIT(4)		/* requires tx */
 
     /* flag indicating this is an SPI slave controller */
     bool            slave;
 
-    /* lock and mutex for SPI bus locking */
-    spinlock_t      bus_lock_spinlock;
-    struct mutex        bus_lock_mutex;
+	/* flag indicating this is a non-devres managed controller */
+	bool			devm_allocated;
 
-    /* flag indicating that the SPI bus is locked for exclusive use */
-    bool            bus_lock_flag;
+	/* lock and mutex for SPI bus locking */
+	spinlock_t		bus_lock_spinlock;
+	struct mutex		bus_lock_mutex;
 
-    /* Setup mode and clock, etc (spi driver may call many times).
-     *
-     * IMPORTANT:  this may be called when transfers to another
-     * device are active.  DO NOT UPDATE SHARED REGISTERS in ways
-     * which could break those transfers.
-     */
-    int         (*setup)(struct spi_device *spi);
+	/* flag indicating that the SPI bus is locked for exclusive use */
+	bool			bus_lock_flag;
 
-    /* bidirectional bulk transfers
-     *
-     * + The transfer() method may not sleep; its main role is
-     *   just to add the message to the queue.
-     * + For now there's no remove-from-queue operation, or
-     *   any other request management
-     * + To a given spi_device, message queueing is pure fifo
-     *
-     * + The master's main job is to process its message queue,
-     *   selecting a chip then transferring data
-     * + If there are multiple spi_device children, the i/o queue
-     *   arbitration algorithm is unspecified (round robin, fifo,
-     *   priority, reservations, preemption, etc)
-     *
-     * + Chipselect stays active during the entire message
-     *   (unless modified by spi_transfer.cs_change != 0).
-     * + The message transfers use clock and SPI mode parameters
-     *   previously established by setup() for this device
-     */
-    int         (*transfer)(struct spi_device *spi,
-                        struct spi_message *mesg);
+	/* Setup mode and clock, etc (spi driver may call many times).
+	 *
+	 * IMPORTANT:  this may be called when transfers to another
+	 * device are active.  DO NOT UPDATE SHARED REGISTERS in ways
+	 * which could break those transfers.
+	 */
+	int			(*setup)(struct spi_device *spi);
 
-    /* called on release() to free memory provided by spi_master */
-    void            (*cleanup)(struct spi_device *spi);
+	/* bidirectional bulk transfers
+	 *
+	 * + The transfer() method may not sleep; its main role is
+	 *   just to add the message to the queue.
+	 * + For now there's no remove-from-queue operation, or
+	 *   any other request management
+	 * + To a given spi_device, message queueing is pure fifo
+	 *
+	 * + The master's main job is to process its message queue,
+	 *   selecting a chip then transferring data
+	 * + If there are multiple spi_device children, the i/o queue
+	 *   arbitration algorithm is unspecified (round robin, fifo,
+	 *   priority, reservations, preemption, etc)
+	 *
+	 * + Chipselect stays active during the entire message
+	 *   (unless modified by spi_transfer.cs_change != 0).
+	 * + The message transfers use clock and SPI mode parameters
+	 *   previously established by setup() for this device
+	 */
+	int			(*transfer)(struct spi_device *spi,
+						struct spi_message *mesg);
 
-    /*
-     * Used to enable core support for DMA handling, if can_dma()
-     * exists and returns true then the transfer will be mapped
-     * prior to transfer_one() being called.  The driver should
-     * not modify or store xfer and dma_tx and dma_rx must be set
-     * while the device is prepared.
-     */
-    bool            (*can_dma)(struct spi_master *master,
-                       struct spi_device *spi,
-                       struct spi_transfer *xfer);
+	/* called on release() to free memory provided by spi_master */
+	void			(*cleanup)(struct spi_device *spi);
 
-    /*
-     * These hooks are for drivers that want to use the generic
-     * master transfer queueing mechanism. If these are used, the
-     * transfer() function above must NOT be specified by the driver.
-     * Over time we expect SPI drivers to be phased over to this API.
-     */
-    bool                queued;
-    struct kthread_worker       kworker;
-    struct task_struct      *kworker_task;
-    struct kthread_work     pump_messages;
-    spinlock_t          queue_lock;
-    struct list_head        queue;
-    struct spi_message      *cur_msg;
-    bool                idling;
-    bool                busy;
-    bool                running;
-    bool                rt;
-    bool                auto_runtime_pm;
-    bool                            cur_msg_prepared;
-    bool                cur_msg_mapped;
-    struct completion               xfer_completion;
-    size_t              max_dma_len;
+	/*
+	 * Used to enable core support for DMA handling, if can_dma()
+	 * exists and returns true then the transfer will be mapped
+	 * prior to transfer_one() being called.  The driver should
+	 * not modify or store xfer and dma_tx and dma_rx must be set
+	 * while the device is prepared.
+	 */
+	bool			(*can_dma)(struct spi_master *master,
+					   struct spi_device *spi,
+					   struct spi_transfer *xfer);
 
-    int (*prepare_transfer_hardware)(struct spi_master *master);
-    int (*transfer_one_message)(struct spi_master *master,
-                    struct spi_message *mesg);
-    int (*unprepare_transfer_hardware)(struct spi_master *master);
-    int (*prepare_message)(struct spi_master *master,
-                   struct spi_message *message);
-    int (*unprepare_message)(struct spi_master *master,
-                 struct spi_message *message);
+	/*
+	 * These hooks are for drivers that want to use the generic
+	 * master transfer queueing mechanism. If these are used, the
+	 * transfer() function above must NOT be specified by the driver.
+	 * Over time we expect SPI drivers to be phased over to this API.
+	 */
+	bool				queued;
+	struct kthread_worker		kworker;
+	struct task_struct		*kworker_task;
+	struct kthread_work		pump_messages;
+	spinlock_t			queue_lock;
+	struct list_head		queue;
+	struct spi_message		*cur_msg;
+	bool				idling;
+	bool				busy;
+	bool				running;
+	bool				rt;
+	bool				auto_runtime_pm;
+	bool                            cur_msg_prepared;
+	bool				cur_msg_mapped;
+	struct completion               xfer_completion;
+	size_t				max_dma_len;
+
+	int (*prepare_transfer_hardware)(struct spi_master *master);
+	int (*transfer_one_message)(struct spi_master *master,
+				    struct spi_message *mesg);
+	int (*unprepare_transfer_hardware)(struct spi_master *master);
+	int (*prepare_message)(struct spi_master *master,
+			       struct spi_message *message);
+	int (*unprepare_message)(struct spi_master *master,
+				 struct spi_message *message);
     int (*slave_abort)(struct spi_master *spi);
 
-    /*
-     * These hooks are for drivers that use a generic implementation
-     * of transfer_one_message() provied by the core.
-     */
-    void (*set_cs)(struct spi_device *spi, bool enable);
-    int (*transfer_one)(struct spi_master *master, struct spi_device *spi,
-                struct spi_transfer *transfer);
-    void (*handle_err)(struct spi_master *master,
-               struct spi_message *message);
+	/*
+	 * These hooks are for drivers that use a generic implementation
+	 * of transfer_one_message() provied by the core.
+	 */
+	void (*set_cs)(struct spi_device *spi, bool enable);
+	int (*transfer_one)(struct spi_master *master, struct spi_device *spi,
+			    struct spi_transfer *transfer);
+	void (*handle_err)(struct spi_master *master,
+			   struct spi_message *message);
 
-    /* gpio chip select */
-    int         *cs_gpios;
+	/* gpio chip select */
+	int			*cs_gpios;
 
-    /* statistics */
-    struct spi_statistics   statistics;
+	/* statistics */
+	struct spi_statistics	statistics;
 
-    /* DMA channels for use with core dmaengine helpers */
-    struct dma_chan     *dma_tx;
-    struct dma_chan     *dma_rx;
+	/* DMA channels for use with core dmaengine helpers */
+	struct dma_chan		*dma_tx;
+	struct dma_chan		*dma_rx;
 
-    /* dummy data for full duplex devices */
-    void            *dummy_rx;
-    void            *dummy_tx;
+	/* dummy data for full duplex devices */
+	void			*dummy_rx;
+	void			*dummy_tx;
 };
 
 static inline void *spi_master_get_devdata(struct spi_master *master)
